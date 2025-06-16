@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrolling Platformer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Parallax Background Layers -->
+        <div class="parallax-layer" id="far-layer"></div>
+        <div class="parallax-layer" id="mid-layer"></div>
+        <div class="parallax-layer" id="close-layer"></div>
+        
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="ui">
+            <div id="health-bar">
+                <div id="health-fill"></div>
+            </div>
+            <div id="coins">Coins: 0</div>
+            <div id="ammo">Ammo: ∞</div>
+            <div id="weapon">Weapon: Pistol</div>
+            <div id="level">Level: 1</div>
+        </div>
+        
+        <div id="shop" class="hidden">
+            <h2>Shop</h2>
+            <div class="shop-item" data-item="pistol">
+                <h3>Pistol</h3>
+                <p>Basic weapon</p>
+                <button>Select (Equipped)</button>
+            </div>
+            <div class="shop-item" data-item="shotgun">
+                <h3>Shotgun</h3>
+                <p>Wide spread</p>
+                <button>Buy (50 coins)</button>
+            </div>
+            <div class="shop-item" data-item="rifle">
+                <h3>Rifle</h3>
+                <p>Fast and accurate</p>
+                <button>Buy (100 coins)</button>
+            </div>
+            <div class="shop-item" data-item="health">
+                <h3>Health Pack</h3>
+                <p>Restore 50 HP</p>
+                <button>Buy (30 coins)</button>
+            </div>
+            <button id="close-shop">Close Shop</button>
+        </div>
+        
+        <div id="game-over" class="hidden">
+            <h2>Game Over</h2>
+            <button id="restart">Restart</button>
+        </div>
+        
+        <div id="level-complete" class="hidden">
+            <h2>Level Complete!</h2>
+            <button id="next-level">Next Level</button>
+            <button id="to-shop">Visit Shop</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
