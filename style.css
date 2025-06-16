@@ -1,0 +1,141 @@
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: 'Arial', sans-serif;
+    background-color: #222;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Parallax Background Layers */
+.parallax-layer {
+    position: absolute;
+    width: 400%;
+    height: 100%;
+    background-repeat: repeat-x;
+    z-index: 0;
+}
+
+#far-layer {
+    background: linear-gradient(90deg, #1a2a6c, #b21f1f, #fdbb2d);
+    animation: parallaxScroll 120s linear infinite;
+    z-index: 1;
+}
+
+#mid-layer {
+    background: linear-gradient(90deg, #3a7bd5, #00d2ff);
+    animation: parallaxScroll 60s linear infinite;
+    z-index: 2;
+    opacity: 0.7;
+    height: 80%;
+    bottom: 0;
+}
+
+#close-layer {
+    background: linear-gradient(90deg, #4b6cb7, #182848);
+    animation: parallaxScroll 30s linear infinite;
+    z-index: 3;
+    opacity: 0.5;
+    height: 60%;
+    bottom: 0;
+}
+
+@keyframes parallaxScroll {
+    0% { background-position: 0 0; }
+    100% { background-position: -100% 0; }
+}
+
+#game-canvas {
+    position: absolute;
+    display: block;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+}
+
+#ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    text-shadow: 1px 1px 2px black;
+    font-size: 16px;
+    z-index: 20;
+}
+
+#health-bar {
+    width: 200px;
+    height: 20px;
+    background-color: #333;
+    border: 2px solid #000;
+    margin-bottom: 10px;
+}
+
+#health-fill {
+    height: 100%;
+    width: 100%;
+    background-color: #f00;
+    transition: width 0.3s;
+}
+
+#shop, #game-over, #level-complete {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    border: 2px solid #444;
+    max-width: 400px;
+    width: 80%;
+    z-index: 30;
+}
+
+.shop-item {
+    background-color: #333;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    border: 1px solid #555;
+}
+
+.shop-item button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.shop-item button:hover {
+    background-color: #45a049;
+}
+
+#close-shop, #restart, #next-level, #to-shop {
+    background-color: #008CBA;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    margin: 10px 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#close-shop:hover, #restart:hover, #next-level:hover, #to-shop:hover {
+    background-color: #0077A3;
+}
+
+.hidden {
+    display: none;
+}
