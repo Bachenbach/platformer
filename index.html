@@ -3,18 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scrolling Platformer</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Complete Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #222;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #game-canvas {
+            display: block;
+            background-color: #87CEEB;
+            width: 100%;
+            height: 100%;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            font-size: 16px;
+            z-index: 20;
+        }
+        #health-bar {
+            width: 200px;
+            height: 20px;
+            background-color: #333;
+            border: 2px solid #000;
+            margin-bottom: 10px;
+        }
+        #health-fill {
+            height: 100%;
+            width: 100%;
+            background-color: #f00;
+            transition: width 0.3s;
+        }
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 30;
+        }
+        #restart-btn {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
 </head>
 <body>
     <div id="game-container">
-        <!-- Parallax Background Layers -->
-        <div class="parallax-layer" id="far-layer"></div>
-        <div class="parallax-layer" id="mid-layer"></div>
-        <div class="parallax-layer" id="close-layer"></div>
-        
         <canvas id="game-canvas"></canvas>
-        
         <div id="ui">
             <div id="health-bar">
                 <div id="health-fill"></div>
@@ -24,43 +94,576 @@
             <div id="weapon">Weapon: Pistol</div>
             <div id="level">Level: 1</div>
         </div>
-        
-        <div id="shop" class="hidden">
-            <h2>Shop</h2>
-            <div class="shop-item" data-item="pistol">
-                <h3>Pistol</h3>
-                <p>Basic weapon</p>
-                <button>Select (Equipped)</button>
-            </div>
-            <div class="shop-item" data-item="shotgun">
-                <h3>Shotgun</h3>
-                <p>Wide spread</p>
-                <button>Buy (50 coins)</button>
-            </div>
-            <div class="shop-item" data-item="rifle">
-                <h3>Rifle</h3>
-                <p>Fast and accurate</p>
-                <button>Buy (100 coins)</button>
-            </div>
-            <div class="shop-item" data-item="health">
-                <h3>Health Pack</h3>
-                <p>Restore 50 HP</p>
-                <button>Buy (30 coins)</button>
-            </div>
-            <button id="close-shop">Close Shop</button>
+        <div id="game-over-screen">
+            <h1>Game Over</h1>
+            <button id="restart-btn">Restart Game</button>
         </div>
-        
-        <div id="game-over" class="hidden">
-            <h2>Game Over</h2>
-            <button id="restart">Restart</button>
-        </div>
-        
-        <div id="level-complete" class="hidden">
-            <h2>Level Complete!</h2>
-            <button id="next-level">Next Level</button>
-            <button id="to-shop">Visit Shop</button>
+        <div id="controls">
+            <strong>Controls:</strong><br>
+            Arrow Keys: Move<br>
+            Space: Shoot<br>
+            R: Restart<br>
+            F: Fullscreen
         </div>
     </div>
-    <script src="game.js"></script>
+
+    <script>
+        // Game Constants
+        const GRAVITY = 0.5;
+        const PLAYER_SPEED = 5;
+        const JUMP_FORCE = -12;
+        const PLAYER_WIDTH = 40;
+        const PLAYER_HEIGHT = 60;
+        const ENEMY_WIDTH = 40;
+        const ENEMY_HEIGHT = 40;
+        const BULLET_SPEED = 10;
+        const BULLET_SIZE = 5;
+        const VOID_HEIGHT = 600; // Y position where void starts
+
+        // Game State
+        let gameState = {
+            player: {
+                x: 100,
+                y: 300,
+                velocityX: 0,
+                velocityY: 0,
+                health: 100,
+                maxHealth: 100,
+                coins: 0,
+                weapons: ['pistol'],
+                currentWeapon: 'pistol',
+                ammo: {
+                    pistol: Infinity,
+                    shotgun: 20,
+                    rifle: 30
+                },
+                facingRight: true,
+                isJumping: false,
+                shootCooldown: 0
+            },
+            platforms: [
+                {x: 0, y: 500, width: 300, height: 20},
+                {x: 350, y: 400, width: 200, height: 20},
+                {x: 600, y: 350, width: 150, height: 20},
+                {x: 800, y: 450, width: 200, height: 20}
+            ],
+            coins: [
+                {x: 200, y: 450, width: 15, height: 15, collected: false},
+                {x: 450, y: 350, width: 15, height: 15, collected: false},
+                {x: 850, y: 400, width: 15, height: 15, collected: false}
+            ],
+            enemies: [
+                {x: 400, y: 360, width: ENEMY_WIDTH, height: ENEMY_HEIGHT, 
+                 health: 30, speed: 1.5, velocityY: 0, direction: 1}
+            ],
+            bullets: [],
+            gameOver: false,
+            level: 1
+        };
+
+        // Canvas Setup
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // UI Elements
+        const healthFill = document.getElementById('health-fill');
+        const coinsDisplay = document.getElementById('coins');
+        const ammoDisplay = document.getElementById('ammo');
+        const weaponDisplay = document.getElementById('weapon');
+        const levelDisplay = document.getElementById('level');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Initialize Game
+        function initGame() {
+            gameState = {
+                player: {
+                    x: 100,
+                    y: 300,
+                    velocityX: 0,
+                    velocityY: 0,
+                    health: 100,
+                    maxHealth: 100,
+                    coins: 0,
+                    weapons: ['pistol'],
+                    currentWeapon: 'pistol',
+                    ammo: {
+                        pistol: Infinity,
+                        shotgun: 20,
+                        rifle: 30
+                    },
+                    facingRight: true,
+                    isJumping: false,
+                    shootCooldown: 0
+                },
+                platforms: [
+                    {x: 0, y: 500, width: 300, height: 20},
+                    {x: 350, y: 400, width: 200, height: 20},
+                    {x: 600, y: 350, width: 150, height: 20},
+                    {x: 800, y: 450, width: 200, height: 20}
+                ],
+                coins: [
+                    {x: 200, y: 450, width: 15, height: 15, collected: false},
+                    {x: 450, y: 350, width: 15, height: 15, collected: false},
+                    {x: 850, y: 400, width: 15, height: 15, collected: false}
+                ],
+                enemies: [
+                    {x: 400, y: 360, width: ENEMY_WIDTH, height: ENEMY_HEIGHT, 
+                     health: 30, speed: 1.5, velocityY: 0, direction: 1}
+                ],
+                bullets: [],
+                gameOver: false,
+                level: 1
+            };
+            
+            gameOverScreen.style.display = 'none';
+            updateUI();
+            gameLoop();
+        }
+
+        // Game Loop
+        function gameLoop() {
+            if (gameState.gameOver) return;
+            
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            updatePlayer();
+            updateEnemies();
+            updateBullets();
+            checkCollisions();
+            checkGameOver();
+        }
+
+        function updatePlayer() {
+            // Apply gravity
+            gameState.player.velocityY += GRAVITY;
+            
+            // Update position
+            gameState.player.x += gameState.player.velocityX;
+            gameState.player.y += gameState.player.velocityY;
+
+            // Platform collisions
+            let onGround = false;
+            for (const platform of gameState.platforms) {
+                if (checkCollision(
+                    gameState.player.x, gameState.player.y, PLAYER_WIDTH, PLAYER_HEIGHT,
+                    platform.x, platform.y, platform.width, platform.height
+                )) {
+                    // Calculate overlap on each side
+                    const playerBottom = gameState.player.y + PLAYER_HEIGHT;
+                    const platformTop = platform.y;
+                    const playerRight = gameState.player.x + PLAYER_WIDTH;
+                    const platformLeft = platform.x;
+                    const playerLeft = gameState.player.x;
+                    const platformRight = platform.x + platform.width;
+                    const playerTop = gameState.player.y;
+                    const platformBottom = platform.y + platform.height;
+
+                    // Check which side is being collided with
+                    const bottomOverlap = Math.abs(playerBottom - platformTop);
+                    const topOverlap = Math.abs(playerTop - platformBottom);
+                    const leftOverlap = Math.abs(playerLeft - platformRight);
+                    const rightOverlap = Math.abs(playerRight - platformLeft);
+
+                    const minOverlap = Math.min(bottomOverlap, topOverlap, leftOverlap, rightOverlap);
+
+                    // Resolve collision based on smallest overlap
+                    if (minOverlap === bottomOverlap) {
+                        // Landing on top
+                        gameState.player.y = platform.y - PLAYER_HEIGHT;
+                        gameState.player.velocityY = 0;
+                        gameState.player.isJumping = false;
+                        onGround = true;
+                    } else if (minOverlap === topOverlap) {
+                        // Hit from below
+                        gameState.player.y = platform.y + platform.height;
+                        gameState.player.velocityY = 0;
+                    } else if (minOverlap === leftOverlap) {
+                        // Hit from right
+                        gameState.player.x = platform.x + platform.width;
+                        gameState.player.velocityX = 0;
+                    } else if (minOverlap === rightOverlap) {
+                        // Hit from left
+                        gameState.player.x = platform.x - PLAYER_WIDTH;
+                        gameState.player.velocityX = 0;
+                    }
+                }
+            }
+
+            // Screen boundaries
+            if (gameState.player.x < 0) gameState.player.x = 0;
+            if (gameState.player.x > canvas.width - PLAYER_WIDTH) {
+                gameState.player.x = canvas.width - PLAYER_WIDTH;
+            }
+
+            // Collect coins
+            for (const coin of gameState.coins) {
+                if (!coin.collected && checkCollision(
+                    gameState.player.x, gameState.player.y, PLAYER_WIDTH, PLAYER_HEIGHT,
+                    coin.x, coin.y, coin.width, coin.height
+                )) {
+                    coin.collected = true;
+                    gameState.player.coins += 5;
+                    updateUI();
+                }
+            }
+
+            // Update shoot cooldown
+            if (gameState.player.shootCooldown > 0) {
+                gameState.player.shootCooldown--;
+            }
+        }
+
+        function updateEnemies() {
+            for (const enemy of gameState.enemies) {
+                // Apply gravity to enemies
+                enemy.velocityY += GRAVITY;
+                
+                // Update position
+                enemy.x += enemy.speed * enemy.direction;
+                enemy.y += enemy.velocityY;
+
+                // Change direction at edges
+                if (enemy.x < 300 || enemy.x + ENEMY_WIDTH > 700) {
+                    enemy.direction *= -1;
+                }
+
+                // Platform collisions for enemies
+                let enemyOnGround = false;
+                for (const platform of gameState.platforms) {
+                    if (checkCollision(
+                        enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT,
+                        platform.x, platform.y, platform.width, platform.height
+                    )) {
+                        const enemyBottom = enemy.y + ENEMY_HEIGHT;
+                        const platformTop = platform.y;
+                        const enemyRight = enemy.x + ENEMY_WIDTH;
+                        const platformLeft = platform.x;
+                        const enemyLeft = enemy.x;
+                        const platformRight = platform.x + platform.width;
+                        const enemyTop = enemy.y;
+                        const platformBottom = platform.y + platform.height;
+
+                        const bottomOverlap = Math.abs(enemyBottom - platformTop);
+                        const topOverlap = Math.abs(enemyTop - platformBottom);
+                        const leftOverlap = Math.abs(enemyLeft - platformRight);
+                        const rightOverlap = Math.abs(enemyRight - platformLeft);
+
+                        const minOverlap = Math.min(bottomOverlap, topOverlap, leftOverlap, rightOverlap);
+
+                        if (minOverlap === bottomOverlap) {
+                            enemy.y = platform.y - ENEMY_HEIGHT;
+                            enemy.velocityY = 0;
+                            enemyOnGround = true;
+                        } else if (minOverlap === topOverlap) {
+                            enemy.y = platform.y + platform.height;
+                            enemy.velocityY = 0;
+                        } else if (minOverlap === leftOverlap) {
+                            enemy.x = platform.x + platform.width;
+                            enemy.direction *= -1;
+                        } else if (minOverlap === rightOverlap) {
+                            enemy.x = platform.x - ENEMY_WIDTH;
+                            enemy.direction *= -1;
+                        }
+                    }
+                }
+            }
+        }
+
+        function updateBullets() {
+            for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+                const bullet = gameState.bullets[i];
+                bullet.x += bullet.speedX;
+                bullet.y += bullet.speedY;
+                
+                // Remove bullets that go off-screen
+                if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+                    gameState.bullets.splice(i, 1);
+                }
+            }
+        }
+
+        function checkCollisions() {
+            // Bullet-enemy collisions
+            for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+                const bullet = gameState.bullets[i];
+                for (let j = gameState.enemies.length - 1; j >= 0; j--) {
+                    const enemy = gameState.enemies[j];
+                    if (checkCollision(
+                        bullet.x, bullet.y, BULLET_SIZE, BULLET_SIZE,
+                        enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT
+                    )) {
+                        gameState.bullets.splice(i, 1);
+                        enemy.health -= bullet.damage;
+                        if (enemy.health <= 0) {
+                            gameState.enemies.splice(j, 1);
+                            gameState.player.coins += 10;
+                            updateUI();
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            // Player-enemy collisions
+            for (const enemy of gameState.enemies) {
+                if (checkCollision(
+                    gameState.player.x, gameState.player.y, PLAYER_WIDTH, PLAYER_HEIGHT,
+                    enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT
+                )) {
+                    gameState.player.health -= 0.5;
+                    updateUI();
+                }
+            }
+        }
+
+        function checkGameOver() {
+            // Check if player fell into the void
+            if (gameState.player.y > VOID_HEIGHT) {
+                gameOver();
+            }
+            
+            // Check if player health is depleted
+            if (gameState.player.health <= 0) {
+                gameOver();
+            }
+        }
+
+        function gameOver() {
+            gameState.gameOver = true;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 &&
+                   x1 + w1 > x2 &&
+                   y1 < y2 + h2 &&
+                   y1 + h1 > y2;
+        }
+
+        function shoot() {
+            if (gameState.player.shootCooldown > 0) return;
+            
+            const weapon = gameState.player.currentWeapon;
+            
+            // Check ammo
+            if (gameState.player.ammo[weapon] <= 0 && weapon !== 'pistol') {
+                return;
+            }
+            
+            // Use ammo
+            if (weapon !== 'pistol') {
+                gameState.player.ammo[weapon]--;
+                updateUI();
+            }
+            
+            // Create bullet based on weapon
+            let bulletConfig;
+            switch(weapon) {
+                case 'pistol':
+                    bulletConfig = {
+                        x: gameState.player.facingRight ? 
+                            gameState.player.x + PLAYER_WIDTH : 
+                            gameState.player.x,
+                        y: gameState.player.y + PLAYER_HEIGHT / 2,
+                        speedX: gameState.player.facingRight ? BULLET_SPEED : -BULLET_SPEED,
+                        speedY: 0,
+                        damage: 10
+                    };
+                    gameState.player.shootCooldown = 15;
+                    break;
+                case 'shotgun':
+                    // Create multiple bullets for shotgun spread
+                    for (let i = 0; i < 5; i++) {
+                        gameState.bullets.push({
+                            x: gameState.player.facingRight ? 
+                                gameState.player.x + PLAYER_WIDTH : 
+                                gameState.player.x,
+                            y: gameState.player.y + PLAYER_HEIGHT / 2,
+                            speedX: gameState.player.facingRight ? 
+                                BULLET_SPEED * (0.7 + Math.random() * 0.6) : 
+                                -BULLET_SPEED * (0.7 + Math.random() * 0.6),
+                            speedY: (Math.random() - 0.5) * 3,
+                            damage: 5
+                        });
+                    }
+                    gameState.player.shootCooldown = 30;
+                    return;
+                case 'rifle':
+                    bulletConfig = {
+                        x: gameState.player.facingRight ? 
+                            gameState.player.x + PLAYER_WIDTH : 
+                            gameState.player.x,
+                        y: gameState.player.y + PLAYER_HEIGHT / 2,
+                        speedX: gameState.player.facingRight ? BULLET_SPEED * 1.5 : -BULLET_SPEED * 1.5,
+                        speedY: 0,
+                        damage: 15
+                    };
+                    gameState.player.shootCooldown = 8;
+                    break;
+            }
+            
+            gameState.bullets.push(bulletConfig);
+        }
+
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw void area
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, VOID_HEIGHT, canvas.width, canvas.height - VOID_HEIGHT);
+            
+            // Draw platforms
+            ctx.fillStyle = '#8B4513';
+            for (const platform of gameState.platforms) {
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+            }
+            
+            // Draw coins
+            ctx.fillStyle = '#FFD700';
+            for (const coin of gameState.coins) {
+                if (!coin.collected) {
+                    ctx.beginPath();
+                    ctx.arc(
+                        coin.x + coin.width/2, 
+                        coin.y + coin.height/2, 
+                        coin.width/2, 
+                        0, 
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+            }
+            
+            // Draw player
+            ctx.fillStyle = '#FF0000';
+            ctx.fillRect(gameState.player.x, gameState.player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+            
+            // Draw eye (direction indicator)
+            ctx.fillStyle = '#FFF';
+            const eyeX = gameState.player.facingRight ? 
+                gameState.player.x + PLAYER_WIDTH - 10 : 
+                gameState.player.x + 10;
+            ctx.beginPath();
+            ctx.arc(eyeX, gameState.player.y + 15, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw enemies
+            for (const enemy of gameState.enemies) {
+                ctx.fillStyle = '#800080';
+                ctx.fillRect(enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT);
+                
+                // Draw enemy health bar
+                ctx.fillStyle = '#333';
+                ctx.fillRect(enemy.x, enemy.y - 10, ENEMY_WIDTH, 5);
+                ctx.fillStyle = '#0F0';
+                ctx.fillRect(enemy.x, enemy.y - 10, ENEMY_WIDTH * (enemy.health/30), 5);
+            }
+            
+            // Draw bullets
+            ctx.fillStyle = '#FFFF00';
+            for (const bullet of gameState.bullets) {
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, BULLET_SIZE, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function updateUI() {
+            // Update health bar
+            const healthPercent = (gameState.player.health / gameState.player.maxHealth) * 100;
+            healthFill.style.width = `${healthPercent}%`;
+            
+            // Update coins
+            coinsDisplay.textContent = `Coins: ${gameState.player.coins}`;
+            
+            // Update ammo
+            const ammo = gameState.player.ammo[gameState.player.currentWeapon];
+            ammoDisplay.textContent = `Ammo: ${ammo === Infinity ? '∞' : ammo}`;
+            
+            // Update weapon
+            weaponDisplay.textContent = `Weapon: ${gameState.player.currentWeapon.charAt(0).toUpperCase() + gameState.player.currentWeapon.slice(1)}`;
+        }
+
+        // Input Handling
+        document.addEventListener('keydown', (e) => {
+            if (gameState.gameOver) return;
+            
+            switch(e.key) {
+                case 'ArrowLeft':
+                    gameState.player.velocityX = -PLAYER_SPEED;
+                    gameState.player.facingRight = false;
+                    break;
+                case 'ArrowRight':
+                    gameState.player.velocityX = PLAYER_SPEED;
+                    gameState.player.facingRight = true;
+                    break;
+                case 'ArrowUp':
+                    if (!gameState.player.isJumping) {
+                        gameState.player.velocityY = JUMP_FORCE;
+                        gameState.player.isJumping = true;
+                    }
+                    break;
+                case ' ':
+                    shoot();
+                    break;
+                case 'r':
+                case 'R':
+                    initGame();
+                    break;
+                case 'f':
+                case 'F':
+                    toggleFullscreen();
+                    break;
+                case '1':
+                    if (gameState.player.weapons.includes('pistol')) {
+                        gameState.player.currentWeapon = 'pistol';
+                        updateUI();
+                    }
+                    break;
+                case '2':
+                    if (gameState.player.weapons.includes('shotgun')) {
+                        gameState.player.currentWeapon = 'shotgun';
+                        updateUI();
+                    }
+                    break;
+                case '3':
+                    if (gameState.player.weapons.includes('rifle')) {
+                        gameState.player.currentWeapon = 'rifle';
+                        updateUI();
+                    }
+                    break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                gameState.player.velocityX = 0;
+            }
+        });
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                canvas.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Event Listeners
+        restartBtn.addEventListener('click', initGame);
+
+        // Start the game
+        initGame();
+    </script>
 </body>
 </html>
